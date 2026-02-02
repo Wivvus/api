@@ -29,7 +29,7 @@ func init() {
 
 func ConfigureRouter(r *gin.Engine) {
 	r.GET(LOGOUT_ROUTE, LogoutWithGoogle)
-	r.GET(USER_ROUTE, GetAuthUser)
+	r.GET(USER_ROUTE, RequireAuth(), GetAuthUser)
 
 	googleConfigureRouter(r)
 }
@@ -84,6 +84,7 @@ func RequireAuth() gin.HandlerFunc {
 			})
 			return
 		}
+
 		ctx.Keys[USER_CONTEXT_KEY] = user
 		// calls the next middleware or handler
 		ctx.Next()

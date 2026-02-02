@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/Wivvus/api/internal/app"
+	"github.com/Wivvus/api/internal/models"
 	"github.com/Wivvus/api/internal/oauth"
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-contrib/sessions/cookie"
@@ -14,18 +15,27 @@ import (
 )
 
 func main() {
-	cookieStoreKey := os.Getenv("COOKIE_STORE_KEY")
-	cookieStoreSecret := os.Getenv("COOKIE_STORE_SECRET")
-
 	r := gin.Default()
 
+	// set up sessions and oauth
+	cookieStoreKey := os.Getenv("COOKIE_STORE_KEY")
+	cookieStoreSecret := os.Getenv("COOKIE_STORE_SECRET")
 	store := cookie.NewStore([]byte(cookieStoreSecret))
 	r.Use(sessions.Sessions(cookieStoreKey, store))
-
 	gothic.Store = store
 
-	oauth.ConfigureRouter(r)
+	// set up DB
+	dbHost := os.Getenv("PG_HOST")
+	dbPort := os.Getenv("PG_PORT")
+	dbUser := os.Getenv("PG_USER")
+	dbPass := os.Getenv("PG_PASSWORD")
+	dbDatabase := os.Getenv("PG_DB")
 
+	dsn := "host=" + dbHost + " user=" + dbUser + " password=" + dbPass + " dbname=" + dbDatabase + " port=" + dbPort + " sslmode=disable"
+	models.ConnectDB(dsn)
+
+	// configure routes
+	oauth.ConfigureRouter(r)
 	app.ConfigureRouter(r)
 
 	if err := r.Run(); err != nil {

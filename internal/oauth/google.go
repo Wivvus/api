@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/Wivvus/api/internal/models"
 	"github.com/gin-gonic/gin"
 	"github.com/markbates/goth"
 	"github.com/markbates/goth/gothic"
@@ -106,7 +107,9 @@ func HandleGoogleAuth(ctx *gin.Context) {
 		return
 	}
 
-	//PHIL: TODO your logic for storing the user in database goes here
+	// update or create in DB
+	userRepo := &models.UserRepo{}
+	userRepo.CreateOrUpdate(models.UserFromGoogleOAuth(user))
 
 	session.Values[USER_SESSION_KEY] = user
 
