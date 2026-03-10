@@ -24,4 +24,5 @@ func ConnectDB(dsn string) {
 	// Migrate the schema
 	db.AutoMigrate(&User{})
 	db.AutoMigrate(&Event{})
+	db.AutoMigrate(&Attendance{})
 }

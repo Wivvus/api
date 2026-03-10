@@ -29,26 +29,29 @@ type Event struct {
 }
 
 type EventAPIDecorator struct {
-	ID          uint       `json:"id"`
-	Name        string     `json:"name"`
-	Description string     `json:"description"`
-	StartTime   *time.Time `json:"start_time,omitempty"`
-	DistanceKm  float64    `json:"distance_km"`
-	PaceMinKm   float64    `json:"pace_min_km"`
-	Location    Location   `json:"location"`
-	CreatorID   uint       `json:"creator_id"`
+	ID            uint       `json:"id"`
+	Name          string     `json:"name"`
+	Description   string     `json:"description"`
+	StartTime     *time.Time `json:"start_time,omitempty"`
+	DistanceKm    float64    `json:"distance_km"`
+	PaceMinKm     float64    `json:"pace_min_km"`
+	Location      Location   `json:"location"`
+	CreatorID     uint       `json:"creator_id"`
+	AttendeeCount int64      `json:"attendee_count"`
 }
 
 func (e *Event) ToAPI() *EventAPIDecorator {
+	ar := &AttendanceRepo{}
 	return &EventAPIDecorator{
-		ID:          e.ID,
-		Name:        e.Name,
-		Description: e.Description,
-		StartTime:   e.StartTime,
-		DistanceKm:  e.DistanceKm,
-		PaceMinKm:   e.PaceMinKm,
-		Location:    e.Location,
-		CreatorID:   e.CreatorUserID,
+		ID:            e.ID,
+		Name:          e.Name,
+		Description:   e.Description,
+		StartTime:     e.StartTime,
+		DistanceKm:    e.DistanceKm,
+		PaceMinKm:     e.PaceMinKm,
+		Location:      e.Location,
+		CreatorID:     e.CreatorUserID,
+		AttendeeCount: ar.CountForEvent(e.ID),
 	}
 }
 

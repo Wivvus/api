@@ -14,6 +14,9 @@ func ConfigureRouter(r *gin.Engine) {
 	r.GET("/event/:id", get)
 	r.PUT("/event/:id", middleware.AuthRequired(), update)
 	r.DELETE("/event/:id", middleware.AuthRequired(), delete)
+	r.GET("/event/:id/attendees", middleware.AuthRequired(), attendees)
+	r.POST("/event/:id/attend", middleware.AuthRequired(), attend)
+	r.DELETE("/event/:id/attend", middleware.AuthRequired(), drop)
 }
 
 func create(ctx *gin.Context) {
@@ -92,6 +95,56 @@ func delete(ctx *gin.Context) {
 	}
 
 	er.DeleteByID(id)
+	ctx.JSON(http.StatusOK, gin.H{"success": true})
+}
+
+func attendees(ctx *gin.Context) {
+	user := ctx.MustGet("user").(*models.User)
+	id := ctx.Param("id")
+	er := models.EventRepo{}
+	event := er.FindByID(id)
+	if event == nil {
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "event not found"})
+		return
+	}
+	ar := models.AttendanceRepo{}
+	ctx.JSON(http.StatusOK, models.AttendeesResponse{
+		Attendees:   ar.AttendeesForEvent(event.ID),
+		IsAttending: ar.IsAttending(event.ID, user.ID),
+	})
+}
+
+func attend(ctx *gin.Context) {
+	user := ctx.MustGet("user").(*models.User)
+	id := ctx.Param("id")
+	er := models.EventRepo{}
+	event := er.FindByID(id)
+	if event == nil {
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "event not found"})
+		return
+	}
+	ar := models.AttendanceRepo{}
+	if err := ar.Attend(event.ID, user.ID); err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"success": true})
+}
+
+func drop(ctx *gin.Context) {
+	user := ctx.MustGet("user").(*models.User)
+	id := ctx.Param("id")
+	er := models.EventRepo{}
+	event := er.FindByID(id)
+	if event == nil {
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "event not found"})
+		return
+	}
+	ar := models.AttendanceRepo{}
+	if err := ar.Drop(event.ID, user.ID); err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
 	ctx.JSON(http.StatusOK, gin.H{"success": true})
 }
 
