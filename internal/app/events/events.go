@@ -11,6 +11,7 @@ import (
 func ConfigureRouter(r *gin.Engine) {
 	r.POST("/event", middleware.AuthRequired(), create)
 	r.GET("/events", list)
+	r.GET("/event/:id", get)
 }
 
 func create(ctx *gin.Context) {
@@ -30,10 +31,19 @@ func create(ctx *gin.Context) {
 	})
 }
 
+func get(ctx *gin.Context) {
+	id := ctx.Param("id")
+	er := models.EventRepo{}
+	event := er.FindByID(id)
+	if event == nil {
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "event not found"})
+		return
+	}
+	ctx.JSON(http.StatusOK, event.ToAPI())
+}
+
 func list(ctx *gin.Context) {
 	eventsRepo := models.EventRepo{}
-
 	events := eventsRepo.All()
-
 	ctx.JSON(http.StatusOK, events.ToAPI())
 }

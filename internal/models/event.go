@@ -54,7 +54,9 @@ type EventRepo struct {
 
 func (e *EventRepo) FindByID(id string) *Event {
 	event := &Event{}
-	db.First(event, id)
+	if result := db.First(event, id); result.Error != nil {
+		return nil
+	}
 	return event
 }
 
