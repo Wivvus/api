@@ -19,18 +19,18 @@ type User struct {
 }
 
 type UserAPIDecorator struct {
-	Name      string
-	Email     string
-	AvatarURL string
-	ID        string
+	ID        uint   `json:"id"`
+	Name      string `json:"name"`
+	Email     string `json:"email"`
+	AvatarURL string `json:"avatar_url"`
 }
 
 func (u *User) ToAPI() *UserAPIDecorator {
 	return &UserAPIDecorator{
+		ID:        u.ID,
 		Name:      u.Name,
 		Email:     u.Email,
 		AvatarURL: u.AvatarURL,
-		ID:        u.OauthID,
 	}
 }
 
@@ -50,15 +50,11 @@ func (u *UserRepo) FindByEmail(email string) *User {
 }
 
 func (u *UserRepo) Create(user *User) error {
-	resp := db.Model(&User{}).Where("oauth_id = ?", user.OauthID)
-	if resp.Error != nil {
-		return resp.Error
-	}
-	if resp.RowsAffected > 0 {
+	existing := &User{}
+	resp := db.Where("oauth_id = ?", user.OauthID).First(existing)
+	if resp.Error == nil {
+		user.Model = existing.Model
 		return UserExists
 	}
-	if resp.RowsAffected == 0 {
-		return db.Create(user).Error
-	}
-	return nil
+	return db.Create(user).Error
 }

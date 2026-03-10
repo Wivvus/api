@@ -19,22 +19,24 @@ func (e Events) ToAPI() []*EventAPIDecorator {
 
 type Event struct {
 	gorm.Model
-	Name        string    `json:"name"`
-	Description string    `json:"description"`
-	StartTime   *time.Time `json:"start_time,omitempty"`
-	DistanceKm  float64   `json:"distance_km"`
-	PaceMinKm   float64   `json:"pace_min_km"`
-	Location    Location  `json:"location" gorm:"embedded"`
+	Name          string     `json:"name"`
+	Description   string     `json:"description"`
+	StartTime     *time.Time `json:"start_time,omitempty"`
+	DistanceKm    float64    `json:"distance_km"`
+	PaceMinKm     float64    `json:"pace_min_km"`
+	Location      Location   `json:"location" gorm:"embedded"`
+	CreatorUserID  uint      `json:"creator_id"`
 }
 
 type EventAPIDecorator struct {
-	ID          uint      `json:"id"`
-	Name        string    `json:"name"`
-	Description string    `json:"description"`
+	ID          uint       `json:"id"`
+	Name        string     `json:"name"`
+	Description string     `json:"description"`
 	StartTime   *time.Time `json:"start_time,omitempty"`
-	DistanceKm  float64   `json:"distance_km"`
-	PaceMinKm   float64   `json:"pace_min_km"`
-	Location    Location  `json:"location"`
+	DistanceKm  float64    `json:"distance_km"`
+	PaceMinKm   float64    `json:"pace_min_km"`
+	Location    Location   `json:"location"`
+	CreatorID   uint       `json:"creator_id"`
 }
 
 func (e *Event) ToAPI() *EventAPIDecorator {
@@ -46,6 +48,7 @@ func (e *Event) ToAPI() *EventAPIDecorator {
 		DistanceKm:  e.DistanceKm,
 		PaceMinKm:   e.PaceMinKm,
 		Location:    e.Location,
+		CreatorID:   e.CreatorUserID,
 	}
 }
 
@@ -71,4 +74,8 @@ func (e *EventRepo) All() Events {
 	events := Events{}
 	db.Find(&events)
 	return events
+}
+
+func (e *EventRepo) DeleteByID(id string) error {
+	return db.Delete(&Event{}, id).Error
 }

@@ -12,14 +12,20 @@ func ConfigureRouter(r *gin.Engine) {
 	r.POST("/event", middleware.AuthRequired(), create)
 	r.GET("/events", list)
 	r.GET("/event/:id", get)
+	r.PUT("/event/:id", middleware.AuthRequired(), update)
+	r.DELETE("/event/:id", middleware.AuthRequired(), delete)
 }
 
 func create(ctx *gin.Context) {
+	user := ctx.MustGet("user").(*models.User)
+
 	var newEvent models.Event
 	if err := ctx.ShouldBindJSON(&newEvent); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+
+	newEvent.CreatorUserID = user.ID
 
 	er := models.EventRepo{}
 	er.CreateOrUpdate(&newEvent)
@@ -27,7 +33,7 @@ func create(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "event received succesfully",
-		"event":   newEvent,
+		"event":   newEvent.ToAPI(),
 	})
 }
 
@@ -40,6 +46,53 @@ func get(ctx *gin.Context) {
 		return
 	}
 	ctx.JSON(http.StatusOK, event.ToAPI())
+}
+
+func update(ctx *gin.Context) {
+	user := ctx.MustGet("user").(*models.User)
+	id := ctx.Param("id")
+
+	er := models.EventRepo{}
+	existing := er.FindByID(id)
+	if existing == nil {
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "event not found"})
+		return
+	}
+	if existing.CreatorUserID != user.ID {
+		ctx.JSON(http.StatusForbidden, gin.H{"error": "not the event creator"})
+		return
+	}
+
+	var updated models.Event
+	if err := ctx.ShouldBindJSON(&updated); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	updated.Model = existing.Model
+	updated.CreatorUserID = existing.CreatorUserID
+	er.CreateOrUpdate(&updated)
+
+	ctx.JSON(http.StatusOK, updated.ToAPI())
+}
+
+func delete(ctx *gin.Context) {
+	user := ctx.MustGet("user").(*models.User)
+	id := ctx.Param("id")
+
+	er := models.EventRepo{}
+	existing := er.FindByID(id)
+	if existing == nil {
+		ctx.JSON(http.StatusNotFound, gin.H{"error": "event not found"})
+		return
+	}
+	if existing.CreatorUserID != user.ID {
+		ctx.JSON(http.StatusForbidden, gin.H{"error": "not the event creator"})
+		return
+	}
+
+	er.DeleteByID(id)
+	ctx.JSON(http.StatusOK, gin.H{"success": true})
 }
 
 func list(ctx *gin.Context) {
