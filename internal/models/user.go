@@ -1,17 +1,37 @@
 package models
 
 import (
-	"github.com/markbates/goth"
+	"errors"
+
 	"gorm.io/gorm"
+)
+
+var (
+	UserExists = errors.New("User already exists")
 )
 
 type User struct {
 	gorm.Model
+	OauthID   string
+	Name      string
 	Email     string
-	FirstName string
-	LastName  string
-	NickName  string
 	AvatarURL string
+}
+
+type UserAPIDecorator struct {
+	Name      string
+	Email     string
+	AvatarURL string
+	ID        string
+}
+
+func (u *User) ToAPI() *UserAPIDecorator {
+	return &UserAPIDecorator{
+		Name:      u.Name,
+		Email:     u.Email,
+		AvatarURL: u.AvatarURL,
+		ID:        u.OauthID,
+	}
 }
 
 type UserRepo struct {
@@ -29,23 +49,16 @@ func (u *UserRepo) FindByEmail(email string) *User {
 	return user
 }
 
-func (u *UserRepo) CreateOrUpdate(user *User) error {
-	resp := db.Model(&User{}).Where("id = ?", user.ID).Updates(user)
+func (u *UserRepo) Create(user *User) error {
+	resp := db.Model(&User{}).Where("oauth_id = ?", user.OauthID)
 	if resp.Error != nil {
 		return resp.Error
+	}
+	if resp.RowsAffected > 0 {
+		return UserExists
 	}
 	if resp.RowsAffected == 0 {
 		return db.Create(user).Error
 	}
 	return nil
-}
-
-func UserFromGoogleOAuth(user goth.User) *User {
-	return &User{
-		Email:     user.Email,
-		FirstName: user.FirstName,
-		LastName:  user.LastName,
-		NickName:  user.NickName,
-		AvatarURL: user.AvatarURL,
-	}
 }

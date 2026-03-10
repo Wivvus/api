@@ -2,13 +2,15 @@ package main
 
 import (
 	"log"
+	"net/http"
 	"os"
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/sirupsen/logrus"
 
+	"github.com/Wivvus/api/internal/app"
 	"github.com/Wivvus/api/internal/middleware"
+	"github.com/Wivvus/api/internal/models"
 
 	"github.com/gin-contrib/cors"
 )
@@ -41,27 +43,20 @@ func main() {
 	})
 
 	// Protected routes
-	r.GET("/api/user/data", middleware.AuthRequired(), getUserData)
-	r.GET("/api/user/profile", middleware.AuthRequired(), getUserProfile)
+	r.GET("/user/data", middleware.AuthRequired(), getUserData)
+	r.GET("/user/profile", middleware.AuthRequired(), getUserProfile)
 
-	// // set up sessions and oauth
-	// cookieStoreKey := os.Getenv("COOKIE_STORE_KEY")
-	// cookieStoreSecret := os.Getenv("COOKIE_STORE_SECRET")
-	// store := cookie.NewStore([]byte(cookieStoreSecret))
-	// r.Use(sessions.Sessions(cookieStoreKey, store))
-	// gothic.Store = store
+	// set up DB
+	dbHost := os.Getenv("PG_HOST")
+	dbPort := os.Getenv("PG_PORT")
+	dbUser := os.Getenv("PG_USER")
+	dbPass := os.Getenv("PG_PASSWORD")
+	dbDatabase := os.Getenv("PG_DB")
 
-	// // set up DB
-	// dbHost := os.Getenv("PG_HOST")
-	// dbPort := os.Getenv("PG_PORT")
-	// dbUser := os.Getenv("PG_USER")
-	// dbPass := os.Getenv("PG_PASSWORD")
-	// dbDatabase := os.Getenv("PG_DB")
+	dsn := "host=" + dbHost + " user=" + dbUser + " password=" + dbPass + " dbname=" + dbDatabase + " port=" + dbPort + " sslmode=disable"
+	models.ConnectDB(dsn)
 
-	// dsn := "host=" + dbHost + " user=" + dbUser + " password=" + dbPass + " dbname=" + dbDatabase + " port=" + dbPort + " sslmode=disable"
-	// models.ConnectDB(dsn)
-
-	// app.ConfigureRouter(r)
+	app.ConfigureRouter(r)
 
 	if err := r.Run(); err != nil {
 		log.Fatalf("failed to run server: %v", err)
@@ -69,19 +64,25 @@ func main() {
 }
 
 func getUserData(c *gin.Context) {
-	logger := logrus.New()
-	logger.Print("processing get user data")
-	userEmail := c.GetString("user_email")
-	userName := c.GetString("user_name")
-	userID := c.GetString("user_id")
-
+	user, exists := c.Get("user")
+	if !exists {
+		c.JSON(http.StatusGone, gin.H{
+			"message": "the user is no longer available",
+		})
+		c.Abort()
+		return
+	}
+	userModel, ok := user.(*models.User)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": "unexpected error processing user data",
+		})
+		c.Abort()
+		return
+	}
 	c.JSON(200, gin.H{
 		"message": "This is protected data",
-		"user": gin.H{
-			"email": userEmail,
-			"name":  userName,
-			"id":    userID,
-		},
+		"user":    userModel.ToAPI(),
 		"data": []string{
 			"User-specific item 1",
 			"User-specific item 2",
@@ -90,14 +91,27 @@ func getUserData(c *gin.Context) {
 }
 
 func getUserProfile(c *gin.Context) {
-	userEmail := c.GetString("user_email")
-	userName := c.GetString("user_name")
-	userPicture := c.GetString("user_picture")
+	user, exists := c.Get("user")
+	if !exists {
+		c.JSON(http.StatusGone, gin.H{
+			"message": "the user is no longer available",
+		})
+		c.Abort()
+		return
+	}
+	userModel, ok := user.(*models.User)
+	if !ok {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"message": "unexpected error processing user data",
+		})
+		c.Abort()
+		return
+	}
 
 	c.JSON(200, gin.H{
-		"email":   userEmail,
-		"name":    userName,
-		"picture": userPicture,
+		"email":   userModel.Email,
+		"name":    userModel.Name,
+		"picture": userModel.AvatarURL,
 		"role":    "user",
 	})
 }

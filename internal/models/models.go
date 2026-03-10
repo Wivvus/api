@@ -9,6 +9,11 @@ var (
 	db *gorm.DB
 )
 
+type Location struct {
+	Lat  float64 `json:"lat"`
+	Long float64 `json:"long"`
+}
+
 func ConnectDB(dsn string) {
 	var err error
 	db, err = gorm.Open(postgres.Open(dsn), &gorm.Config{})

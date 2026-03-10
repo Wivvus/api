@@ -2,12 +2,13 @@ package middleware
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"strings"
 
+	"github.com/Wivvus/api/internal/models"
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/gin-gonic/gin"
-	"github.com/sirupsen/logrus"
 )
 
 var (
@@ -29,11 +30,8 @@ func InitAuth(clientID string) error {
 
 func AuthRequired() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		logger := logrus.New()
-		logger.Print("processing auth required")
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
-			logger.Printf("no auth header")
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Authorization header required"})
 			c.Abort()
 			return
@@ -68,12 +66,23 @@ func AuthRequired() gin.HandlerFunc {
 			return
 		}
 
-		// Store user info in context
-		c.Set("user_email", claims.Email)
-		c.Set("user_name", claims.Name)
-		c.Set("user_id", idToken.Subject)
-		c.Set("user_picture", claims.Picture)
+		user := &models.User{
+			OauthID:   idToken.Subject,
+			Name:      claims.Name,
+			Email:     claims.Email,
+			AvatarURL: claims.Picture,
+		}
 
+		ur := &models.UserRepo{}
+		err = ur.Create(user)
+		if err != nil && !errors.Is(models.UserExists, err) {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "error storing user data"})
+			c.Abort()
+			return
+		}
+
+		// Store user info in context
+		c.Set("user", user)
 		c.Next()
 	}
 }

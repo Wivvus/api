@@ -3,13 +3,13 @@ package events
 import (
 	"net/http"
 
+	"github.com/Wivvus/api/internal/middleware"
 	"github.com/Wivvus/api/internal/models"
-	"github.com/Wivvus/api/internal/oauth"
 	"github.com/gin-gonic/gin"
 )
 
 func ConfigureRouter(r *gin.Engine) {
-	r.POST("/event", oauth.RequireAuth(), create)
+	r.POST("/event", middleware.AuthRequired(), create)
 	r.GET("/events", list)
 }
 
@@ -35,9 +35,5 @@ func list(ctx *gin.Context) {
 
 	events := eventsRepo.All()
 
-	ctx.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "Page loaded successfully",
-		"data":    events,
-	})
+	ctx.JSON(http.StatusOK, events.ToAPI())
 }
