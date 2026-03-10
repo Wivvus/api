@@ -21,7 +21,7 @@ type Event struct {
 	gorm.Model
 	Name        string    `json:"name"`
 	Description string    `json:"description"`
-	StartTime   time.Time `json:"start_time"`
+	StartTime   *time.Time `json:"start_time,omitempty"`
 	DistanceKm  float64   `json:"distance_km"`
 	PaceMinKm   float64   `json:"pace_min_km"`
 	Location    Location  `json:"location" gorm:"embedded"`
@@ -31,7 +31,7 @@ type EventAPIDecorator struct {
 	ID          uint      `json:"id"`
 	Name        string    `json:"name"`
 	Description string    `json:"description"`
-	StartTime   time.Time `json:"start_time"`
+	StartTime   *time.Time `json:"start_time,omitempty"`
 	DistanceKm  float64   `json:"distance_km"`
 	PaceMinKm   float64   `json:"pace_min_km"`
 	Location    Location  `json:"location"`
