@@ -53,7 +53,11 @@ func main() {
 	dbPass := os.Getenv("PG_PASSWORD")
 	dbDatabase := os.Getenv("PG_DB")
 
-	dsn := "host=" + dbHost + " user=" + dbUser + " password=" + dbPass + " dbname=" + dbDatabase + " port=" + dbPort + " sslmode=disable"
+	sslMode := os.Getenv("PG_SSLMODE")
+	if sslMode == "" {
+		sslMode = "disable"
+	}
+	dsn := "host=" + dbHost + " user=" + dbUser + " password=" + dbPass + " dbname=" + dbDatabase + " port=" + dbPort + " sslmode=" + sslMode
 	models.ConnectDB(dsn)
 
 	app.ConfigureRouter(r)
