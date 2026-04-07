@@ -40,6 +40,9 @@ func create(ctx *gin.Context) {
 	er := models.EventRepo{}
 	er.CreateOrUpdate(&newEvent)
 
+	ar := models.AttendanceRepo{}
+	ar.Attend(newEvent.ID, user.ID)
+
 	ctx.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "event received succesfully",
