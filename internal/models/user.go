@@ -12,10 +12,13 @@ var (
 
 type User struct {
 	gorm.Model
-	OauthID   string
-	Name      string
-	Email     string
-	AvatarURL string
+	OauthID       string
+	Name          string
+	Email         string
+	AvatarURL     string
+	PasswordHash  string
+	EmailVerified bool
+	Provider      string // "google", "local"
 }
 
 type UserAPIDecorator struct {
@@ -57,4 +60,37 @@ func (u *UserRepo) Create(user *User) error {
 		return UserExists
 	}
 	return db.Create(user).Error
+}
+
+func (u *UserRepo) FindByEmailAny(email string) (*User, error) {
+	user := &User{}
+	err := db.Where("email = ?", email).First(user).Error
+	return user, err
+}
+
+// UpsertLocalPassword sets a password on an existing user (account linking) or creates a new local user.
+func (u *UserRepo) UpsertLocalPassword(email string, hash string, name string) (*User, error) {
+	existing := &User{}
+	err := db.Where("email = ?", email).First(existing).Error
+	if err == nil {
+		// Account exists (could be Google) — just add the password
+		existing.PasswordHash = hash
+		existing.EmailVerified = true
+		return existing, db.Save(existing).Error
+	}
+	// No existing account — create a new local one
+	user := &User{
+		Name:          name,
+		Email:         email,
+		PasswordHash:  hash,
+		EmailVerified: true,
+		Provider:      "local",
+	}
+	return user, db.Create(user).Error
+}
+
+func (u *UserRepo) FindByEmailWithPassword(email string) (*User, error) {
+	user := &User{}
+	err := db.Where("email = ? AND password_hash != ''", email).First(user).Error
+	return user, err
 }

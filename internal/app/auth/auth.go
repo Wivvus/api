@@ -1,0 +1,130 @@
+package auth
+
+import (
+	"fmt"
+	"net/http"
+	"os"
+
+	"github.com/Wivvus/api/internal/email"
+	"github.com/Wivvus/api/internal/models"
+	"github.com/Wivvus/api/internal/tokens"
+	"github.com/gin-gonic/gin"
+	"golang.org/x/crypto/bcrypt"
+)
+
+func ConfigureRouter(r *gin.Engine) {
+	r.POST("/auth/register", register)
+	r.POST("/auth/set-password", setPassword)
+	r.POST("/auth/login", login)
+}
+
+func register(c *gin.Context) {
+	var body struct {
+		Email string `json:"email" binding:"required"`
+		Name  string `json:"name" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "email and name are required"})
+		return
+	}
+
+	vr := &models.VerificationRepo{}
+	token, err := vr.Create(body.Email, body.Name)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create verification token"})
+		return
+	}
+
+	appURL := os.Getenv("APP_URL")
+	link := fmt.Sprintf("%s/set-password?token=%s", appURL, token.Token)
+
+	if err := email.SendVerification(body.Email, body.Name, link); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to send verification email"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Check your email to continue"})
+}
+
+func setPassword(c *gin.Context) {
+	var body struct {
+		Token    string `json:"token" binding:"required"`
+		Password string `json:"password" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "token and password are required"})
+		return
+	}
+
+	if len(body.Password) < 8 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "password must be at least 8 characters"})
+		return
+	}
+
+	vr := &models.VerificationRepo{}
+	vt, err := vr.FindValid(body.Token)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid or expired token"})
+		return
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(body.Password), bcrypt.DefaultCost)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to hash password"})
+		return
+	}
+
+	ur := &models.UserRepo{}
+	user, err := ur.UpsertLocalPassword(vt.Email, string(hash), vt.Name)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save account"})
+		return
+	}
+
+	vr.MarkUsed(vt.ID)
+
+	jwt, err := tokens.Sign(user.ID, user.Email, user.Name)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to sign token"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"token": jwt,
+		"user":  user.ToAPI(),
+	})
+}
+
+func login(c *gin.Context) {
+	var body struct {
+		Email    string `json:"email" binding:"required"`
+		Password string `json:"password" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "email and password are required"})
+		return
+	}
+
+	ur := &models.UserRepo{}
+	user, err := ur.FindByEmailWithPassword(body.Email)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid email or password"})
+		return
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(body.Password)); err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid email or password"})
+		return
+	}
+
+	jwt, err := tokens.Sign(user.ID, user.Email, user.Name)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to sign token"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"token": jwt,
+		"user":  user.ToAPI(),
+	})
+}

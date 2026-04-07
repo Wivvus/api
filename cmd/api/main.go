@@ -11,6 +11,7 @@ import (
 	"github.com/Wivvus/api/internal/app"
 	"github.com/Wivvus/api/internal/middleware"
 	"github.com/Wivvus/api/internal/models"
+	"github.com/Wivvus/api/internal/tokens"
 
 	"github.com/gin-contrib/cors"
 )
@@ -26,13 +27,19 @@ func main() {
 		log.Fatalf("Failed to initialize auth: %v", err)
 	}
 
+	jwtSecret := os.Getenv("JWT_SECRET")
+	if jwtSecret == "" {
+		log.Fatal("JWT_SECRET environment variable is required")
+	}
+	tokens.Init(jwtSecret)
+
 	r := gin.Default()
 
 	// CORS
 	r.Use(cors.New(cors.Config{
 		AllowOrigins:     strings.Split(os.Getenv("ALLOWED_ORIGINS"), ","),
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization", "X-Auth-Provider"},
 		ExposeHeaders:    []string{"Content-Length"},
 		AllowCredentials: true,
 	}))

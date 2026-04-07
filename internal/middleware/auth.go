@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/Wivvus/api/internal/models"
+	"github.com/Wivvus/api/internal/tokens"
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/gin-gonic/gin"
 )
@@ -44,39 +45,19 @@ func AuthRequired() gin.HandlerFunc {
 			return
 		}
 
-		// Verify the ID token
-		idToken, err := verifier.Verify(c.Request.Context(), tokenString)
+		provider := c.GetHeader("X-Auth-Provider")
+
+		var user *models.User
+		var err error
+
+		if provider == "local" {
+			user, err = verifyLocalToken(tokenString)
+		} else {
+			user, err = verifyGoogleToken(c.Request.Context(), tokenString)
+		}
+
 		if err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
-			c.Abort()
-			return
-		}
-
-		// Extract claims
-		var claims struct {
-			Email         string `json:"email"`
-			EmailVerified bool   `json:"email_verified"`
-			Name          string `json:"name"`
-			Picture       string `json:"picture"`
-		}
-
-		if err := idToken.Claims(&claims); err != nil {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Failed to parse claims"})
-			c.Abort()
-			return
-		}
-
-		user := &models.User{
-			OauthID:   idToken.Subject,
-			Name:      claims.Name,
-			Email:     claims.Email,
-			AvatarURL: claims.Picture,
-		}
-
-		ur := &models.UserRepo{}
-		err = ur.Create(user)
-		if err != nil && !errors.Is(models.UserExists, err) {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "error storing user data"})
+			c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 			c.Abort()
 			return
 		}
@@ -85,4 +66,49 @@ func AuthRequired() gin.HandlerFunc {
 		c.Set("user", user)
 		c.Next()
 	}
+}
+
+func verifyGoogleToken(ctx context.Context, tokenString string) (*models.User, error) {
+	idToken, err := verifier.Verify(ctx, tokenString)
+	if err != nil {
+		return nil, errors.New("Invalid token")
+	}
+
+	var claims struct {
+		Email   string `json:"email"`
+		Name    string `json:"name"`
+		Picture string `json:"picture"`
+	}
+	if err := idToken.Claims(&claims); err != nil {
+		return nil, errors.New("Failed to parse claims")
+	}
+
+	user := &models.User{
+		OauthID:   idToken.Subject,
+		Name:      claims.Name,
+		Email:     claims.Email,
+		AvatarURL: claims.Picture,
+		Provider:  "google",
+	}
+
+	ur := &models.UserRepo{}
+	err = ur.Create(user)
+	if err != nil && !errors.Is(models.UserExists, err) {
+		return nil, errors.New("error storing user data")
+	}
+	return user, nil
+}
+
+func verifyLocalToken(tokenString string) (*models.User, error) {
+	claims, err := tokens.Verify(tokenString)
+	if err != nil {
+		return nil, errors.New("Invalid token")
+	}
+
+	ur := &models.UserRepo{}
+	user := ur.FindByID(claims.Subject)
+	if user.ID == 0 {
+		return nil, errors.New("User not found")
+	}
+	return user, nil
 }
