@@ -2,6 +2,7 @@ package events
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/Wivvus/api/internal/middleware"
 	"github.com/Wivvus/api/internal/models"
@@ -24,6 +25,11 @@ func create(ctx *gin.Context) {
 
 	var newEvent models.Event
 	if err := ctx.ShouldBindJSON(&newEvent); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := models.ValidateEvent(&newEvent); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
@@ -68,6 +74,11 @@ func update(ctx *gin.Context) {
 
 	var updated models.Event
 	if err := ctx.ShouldBindJSON(&updated); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	if err := models.ValidateEvent(&updated); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
@@ -149,7 +160,17 @@ func drop(ctx *gin.Context) {
 }
 
 func list(ctx *gin.Context) {
-	eventsRepo := models.EventRepo{}
-	events := eventsRepo.All()
-	ctx.JSON(http.StatusOK, events.ToAPI())
+	er := models.EventRepo{}
+	latMin, errA := strconv.ParseFloat(ctx.Query("lat_min"), 64)
+	latMax, errB := strconv.ParseFloat(ctx.Query("lat_max"), 64)
+	lngMin, errC := strconv.ParseFloat(ctx.Query("lng_min"), 64)
+	lngMax, errD := strconv.ParseFloat(ctx.Query("lng_max"), 64)
+
+	if errA == nil && errB == nil && errC == nil && errD == nil {
+		bbox := models.BoundingBox{LatMin: latMin, LatMax: latMax, LngMin: lngMin, LngMax: lngMax}
+		ctx.JSON(http.StatusOK, er.AllInBounds(bbox).ToAPI())
+		return
+	}
+
+	ctx.JSON(http.StatusOK, er.All().ToAPI())
 }

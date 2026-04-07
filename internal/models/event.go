@@ -1,6 +1,7 @@
 package models
 
 import (
+	"fmt"
 	"time"
 
 	"gorm.io/gorm"
@@ -19,9 +20,9 @@ func (e Events) ToAPI() []*EventAPIDecorator {
 
 type Event struct {
 	gorm.Model
-	Name          string     `json:"name"`
-	Description   string     `json:"description"`
-	StartTime     *time.Time `json:"start_time,omitempty"`
+	Name          string    `json:"name"`
+	Description   string    `json:"description"`
+	StartTime     time.Time `json:"start_time"`
 	DistanceKm    float64    `json:"distance_km"`
 	PaceMinKm     float64    `json:"pace_min_km"`
 	Location      Location   `json:"location" gorm:"embedded"`
@@ -29,10 +30,10 @@ type Event struct {
 }
 
 type EventAPIDecorator struct {
-	ID            uint       `json:"id"`
-	Name          string     `json:"name"`
-	Description   string     `json:"description"`
-	StartTime     *time.Time `json:"start_time,omitempty"`
+	ID            uint      `json:"id"`
+	Name          string    `json:"name"`
+	Description   string    `json:"description"`
+	StartTime     time.Time `json:"start_time"`
 	DistanceKm    float64    `json:"distance_km"`
 	PaceMinKm     float64    `json:"pace_min_km"`
 	Location      Location   `json:"location"`
@@ -75,8 +76,36 @@ func (e *EventRepo) CreateOrUpdate(event *Event) error {
 
 func (e *EventRepo) All() Events {
 	events := Events{}
-	db.Find(&events)
+	db.Where("start_time >= ?", time.Now()).Find(&events)
 	return events
+}
+
+type BoundingBox struct {
+	LatMin, LatMax, LngMin, LngMax float64
+}
+
+func (e *EventRepo) AllInBounds(b BoundingBox) Events {
+	events := Events{}
+	db.Where("start_time >= ? AND lat BETWEEN ? AND ? AND long BETWEEN ? AND ?",
+		time.Now(), b.LatMin, b.LatMax, b.LngMin, b.LngMax,
+	).Find(&events)
+	return events
+}
+
+func ValidateEvent(e *Event) error {
+	if e.Name == "" {
+		return fmt.Errorf("event name is required")
+	}
+	if e.Location.Lat == 0 && e.Location.Long == 0 {
+		return fmt.Errorf("location is required")
+	}
+	if e.StartTime.IsZero() {
+		return fmt.Errorf("start time is required")
+	}
+	if e.StartTime.Before(time.Now()) {
+		return fmt.Errorf("start time must be in the future")
+	}
+	return nil
 }
 
 func (e *EventRepo) DeleteByID(id string) error {
