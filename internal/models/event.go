@@ -74,9 +74,48 @@ func (e *EventRepo) CreateOrUpdate(event *Event) error {
 	return nil
 }
 
-func (e *EventRepo) All() Events {
+type Filters struct {
+	MinLength  float64
+	MaxLength  float64
+	MinPace    float64
+	MaxPace    float64
+	MaxRadius  float64
+	UserLat    float64
+	UserLng    float64
+	DateFrom   *time.Time
+}
+
+func applyFilters(q *gorm.DB, f Filters) *gorm.DB {
+	now := time.Now()
+	start := now
+	if f.DateFrom != nil && f.DateFrom.After(now) {
+		start = *f.DateFrom
+	}
+	q = q.Where("start_time >= ?", start)
+	if f.MinLength > 0 {
+		q = q.Where("distance_km >= ?", f.MinLength)
+	}
+	if f.MaxLength > 0 {
+		q = q.Where("distance_km <= ?", f.MaxLength)
+	}
+	if f.MinPace > 0 {
+		q = q.Where("pace_min_km >= ?", f.MinPace)
+	}
+	if f.MaxPace > 0 {
+		q = q.Where("pace_min_km <= ?", f.MaxPace)
+	}
+	if f.MaxRadius > 0 && (f.UserLat != 0 || f.UserLng != 0) {
+		q = q.Where(`(6371 * acos(
+			cos(radians(?)) * cos(radians(lat)) * cos(radians(long) - radians(?)) +
+			sin(radians(?)) * sin(radians(lat))
+		)) <= ?`, f.UserLat, f.UserLng, f.UserLat, f.MaxRadius)
+	}
+	return q
+}
+
+func (e *EventRepo) All(f Filters) Events {
 	events := Events{}
-	db.Where("start_time >= ?", time.Now()).Find(&events)
+	applyFilters(db, f).Find(&events)
 	return events
 }
 
@@ -84,10 +123,11 @@ type BoundingBox struct {
 	LatMin, LatMax, LngMin, LngMax float64
 }
 
-func (e *EventRepo) AllInBounds(b BoundingBox) Events {
+func (e *EventRepo) AllInBounds(b BoundingBox, f Filters) Events {
 	events := Events{}
-	db.Where("start_time >= ? AND lat BETWEEN ? AND ? AND long BETWEEN ? AND ?",
-		time.Now(), b.LatMin, b.LatMax, b.LngMin, b.LngMax,
+	q := applyFilters(db, f)
+	q.Where("lat BETWEEN ? AND ? AND long BETWEEN ? AND ?",
+		b.LatMin, b.LatMax, b.LngMin, b.LngMax,
 	).Find(&events)
 	return events
 }
