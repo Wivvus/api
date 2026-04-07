@@ -23,10 +23,11 @@ type Event struct {
 	Name          string    `json:"name"`
 	Description   string    `json:"description"`
 	StartTime     time.Time `json:"start_time"`
-	DistanceKm    float64    `json:"distance_km"`
-	PaceMinKm     float64    `json:"pace_min_km"`
-	Location      Location   `json:"location" gorm:"embedded"`
-	CreatorUserID  uint      `json:"creator_id"`
+	DistanceKm    float64   `json:"distance_km"`
+	PaceMinKm     float64   `json:"pace_min_km"`
+	AllPaces      bool      `json:"all_paces"`
+	Location      Location  `json:"location" gorm:"embedded"`
+	CreatorUserID uint      `json:"creator_id"`
 }
 
 type EventAPIDecorator struct {
@@ -34,11 +35,12 @@ type EventAPIDecorator struct {
 	Name          string    `json:"name"`
 	Description   string    `json:"description"`
 	StartTime     time.Time `json:"start_time"`
-	DistanceKm    float64    `json:"distance_km"`
-	PaceMinKm     float64    `json:"pace_min_km"`
-	Location      Location   `json:"location"`
-	CreatorID     uint       `json:"creator_id"`
-	AttendeeCount int64      `json:"attendee_count"`
+	DistanceKm    float64   `json:"distance_km"`
+	PaceMinKm     float64   `json:"pace_min_km"`
+	AllPaces      bool      `json:"all_paces"`
+	Location      Location  `json:"location"`
+	CreatorID     uint      `json:"creator_id"`
+	AttendeeCount int64     `json:"attendee_count"`
 }
 
 func (e *Event) ToAPI() *EventAPIDecorator {
@@ -50,6 +52,7 @@ func (e *Event) ToAPI() *EventAPIDecorator {
 		StartTime:     e.StartTime,
 		DistanceKm:    e.DistanceKm,
 		PaceMinKm:     e.PaceMinKm,
+		AllPaces:      e.AllPaces,
 		Location:      e.Location,
 		CreatorID:     e.CreatorUserID,
 		AttendeeCount: ar.CountForEvent(e.ID),
@@ -99,10 +102,10 @@ func applyFilters(q *gorm.DB, f Filters) *gorm.DB {
 		q = q.Where("distance_km <= ?", f.MaxLength)
 	}
 	if f.MinPace > 0 {
-		q = q.Where("pace_min_km >= ?", f.MinPace)
+		q = q.Where("all_paces = true OR pace_min_km >= ?", f.MinPace)
 	}
 	if f.MaxPace > 0 {
-		q = q.Where("pace_min_km <= ?", f.MaxPace)
+		q = q.Where("all_paces = true OR pace_min_km <= ?", f.MaxPace)
 	}
 	if f.MaxRadius > 0 && (f.UserLat != 0 || f.UserLng != 0) {
 		q = q.Where(`(6371 * acos(
