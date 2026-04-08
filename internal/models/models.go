@@ -14,6 +14,14 @@ type Location struct {
 	Long float64 `json:"long"`
 }
 
+func PingDB() error {
+	sqlDB, err := db.DB()
+	if err != nil {
+		return err
+	}
+	return sqlDB.Ping()
+}
+
 func ConnectDB(dsn string) {
 	var err error
 	db, err = gorm.Open(postgres.Open(dsn), &gorm.Config{})

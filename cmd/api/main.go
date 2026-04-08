@@ -46,7 +46,11 @@ func main() {
 
 	// Public routes
 	r.GET("/health", func(c *gin.Context) {
-		c.JSON(200, gin.H{"status": "ok"})
+		if err := models.PingDB(); err != nil {
+			c.JSON(http.StatusServiceUnavailable, gin.H{"status": "degraded", "db": "unreachable"})
+			return
+		}
+		c.JSON(http.StatusOK, gin.H{"status": "ok", "db": "ok"})
 	})
 
 	// Protected routes
