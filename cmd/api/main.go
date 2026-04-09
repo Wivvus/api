@@ -69,6 +69,7 @@ func main() {
 		sslMode = "disable"
 	}
 	dsn := "host=" + dbHost + " user=" + dbUser + " password=" + dbPass + " dbname=" + dbDatabase + " port=" + dbPort + " sslmode=" + sslMode
+	log.Print("dsn", dsn)
 	models.ConnectDB(dsn)
 
 	app.ConfigureRouter(r)

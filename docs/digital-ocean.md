@@ -89,7 +89,6 @@ On the **Environment Variables** screen, add the following. Mark sensitive value
 | `PG_SSLMODE` | `require` | No |
 | `JWT_SECRET` | A long random string — generate with `openssl rand -hex 32` | Yes |
 | `GOOGLE_OAUTH_CLIENT_ID` | Your Google OAuth client ID | No |
-| `GOOGLE_OAUTH_CLIENT_SECRET` | Your Google OAuth client secret | Yes |
 | `SMTP_HOST` | `smtp.gmail.com` | No |
 | `SMTP_PORT` | `587` | No |
 | `SMTP_USER` | Your Gmail address | No |
@@ -161,7 +160,7 @@ Once the custom domain is active, update `ALLOWED_ORIGINS` to use it.
      ```
      https://<your-api-url>/auth/google/callback
      ```
-4. Click **Create**. Copy the **Client ID** and **Client Secret** — these go into `GOOGLE_OAUTH_CLIENT_ID` and `GOOGLE_OAUTH_CLIENT_SECRET` in step 4.
+4. Click **Create**. Copy the **Client ID** — this goes into `GOOGLE_OAUTH_CLIENT_ID` in step 4. The client secret is not required by the API.
 
 > If you don't yet know your API URL (assigned after deployment in step 6), you can come back and add the redirect URI afterwards. The app won't crash on startup — the redirect URI is only checked by Google at login time.
 
