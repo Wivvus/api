@@ -89,6 +89,16 @@ func (u *UserRepo) UpsertLocalPassword(email string, hash string, name string) (
 	return user, db.Create(user).Error
 }
 
+func (u *UserRepo) Delete(userID uint) error {
+	db.Where("user_id = ?", userID).Delete(&Attendance{})
+	db.Where("creator_user_id = ?", userID).Delete(&Event{})
+	return db.Delete(&User{}, userID).Error
+}
+
+func (u *UserRepo) UpdatePassword(userID uint, hash string) error {
+	return db.Model(&User{}).Where("id = ?", userID).Update("password_hash", hash).Error
+}
+
 func (u *UserRepo) FindByEmailWithPassword(email string) (*User, error) {
 	user := &User{}
 	err := db.Where("email = ? AND password_hash != ''", email).First(user).Error

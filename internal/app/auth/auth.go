@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/Wivvus/api/internal/email"
+	"github.com/Wivvus/api/internal/middleware"
 	"github.com/Wivvus/api/internal/models"
 	"github.com/Wivvus/api/internal/tokens"
 	"github.com/gin-gonic/gin"
@@ -15,7 +16,10 @@ import (
 func ConfigureRouter(r *gin.Engine) {
 	r.POST("/auth/register", register)
 	r.POST("/auth/set-password", setPassword)
+	r.POST("/auth/forgot-password", forgotPassword)
+	r.POST("/auth/change-password", middleware.AuthRequired(), changePassword)
 	r.POST("/auth/login", login)
+	r.DELETE("/user", middleware.AuthRequired(), deleteAccount)
 }
 
 func register(c *gin.Context) {
@@ -93,6 +97,95 @@ func setPassword(c *gin.Context) {
 		"token": jwt,
 		"user":  user.ToAPI(),
 	})
+}
+
+func deleteAccount(c *gin.Context) {
+	user := c.MustGet("user").(*models.User)
+	ur := &models.UserRepo{}
+	if err := ur.Delete(user.ID); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to delete account"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"success": true})
+}
+
+func changePassword(c *gin.Context) {
+	user := c.MustGet("user").(*models.User)
+
+	var body struct {
+		CurrentPassword string `json:"current_password" binding:"required"`
+		NewPassword     string `json:"new_password" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "current_password and new_password are required"})
+		return
+	}
+
+	if len(body.NewPassword) < 8 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "password must be at least 8 characters"})
+		return
+	}
+
+	ur := &models.UserRepo{}
+	existing, err := ur.FindByEmailWithPassword(user.Email)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "no password set on this account"})
+		return
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(existing.PasswordHash), []byte(body.CurrentPassword)); err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "current password is incorrect"})
+		return
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(body.NewPassword), bcrypt.DefaultCost)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to hash password"})
+		return
+	}
+
+	existing.PasswordHash = string(hash)
+	if err := ur.UpdatePassword(existing.ID, string(hash)); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update password"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "password updated"})
+}
+
+func forgotPassword(c *gin.Context) {
+	var body struct {
+		Email string `json:"email" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "email is required"})
+		return
+	}
+
+	// Always return 200 to avoid revealing whether an account exists
+	ur := &models.UserRepo{}
+	user, err := ur.FindByEmailWithPassword(body.Email)
+	if err != nil {
+		c.JSON(http.StatusOK, gin.H{"message": "If an account exists, a reset email has been sent"})
+		return
+	}
+
+	vr := &models.VerificationRepo{}
+	token, err := vr.Create(user.Email, user.Name)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create reset token"})
+		return
+	}
+
+	appURL := os.Getenv("APP_URL")
+	link := fmt.Sprintf("%s/set-password?token=%s&reset=true", appURL, token.Token)
+
+	if err := email.SendPasswordReset(user.Email, link); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to send reset email"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "If an account exists, a reset email has been sent"})
 }
 
 func login(c *gin.Context) {
