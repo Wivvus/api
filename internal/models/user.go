@@ -57,6 +57,7 @@ func (u *UserRepo) Create(user *User) error {
 	resp := db.Where("oauth_id = ?", user.OauthID).First(existing)
 	if resp.Error == nil {
 		user.Model = existing.Model
+		user.AvatarURL = existing.AvatarURL
 		return UserExists
 	}
 	return db.Create(user).Error
@@ -93,6 +94,10 @@ func (u *UserRepo) Delete(userID uint) error {
 	db.Where("user_id = ?", userID).Delete(&Attendance{})
 	db.Where("creator_user_id = ?", userID).Delete(&Event{})
 	return db.Delete(&User{}, userID).Error
+}
+
+func (u *UserRepo) UpdateAvatar(userID uint, url string) error {
+	return db.Model(&User{}).Where("id = ?", userID).Update("avatar_url", url).Error
 }
 
 func (u *UserRepo) UpdatePassword(userID uint, hash string) error {

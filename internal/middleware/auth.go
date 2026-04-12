@@ -3,10 +3,13 @@ package middleware
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
+	"os"
 	"strings"
 
 	"github.com/Wivvus/api/internal/models"
+	"github.com/Wivvus/api/internal/storage"
 	"github.com/Wivvus/api/internal/tokens"
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/gin-gonic/gin"
@@ -62,7 +65,12 @@ func AuthRequired() gin.HandlerFunc {
 			return
 		}
 
-		// Store user info in context
+		spacesHost := fmt.Sprintf("%s.%s.digitaloceanspaces.com", os.Getenv("DO_SPACES_BUCKET"), os.Getenv("DO_SPACES_REGION"))
+		if user.AvatarURL != "" && !strings.Contains(user.AvatarURL, spacesHost) {
+			ur := &models.UserRepo{}
+			go copyAvatarToSpaces(user, ur)
+		}
+
 		c.Set("user", user)
 		c.Next()
 	}
@@ -96,7 +104,18 @@ func verifyGoogleToken(ctx context.Context, tokenString string) (*models.User, e
 	if err != nil && !errors.Is(models.UserExists, err) {
 		return nil, errors.New("error storing user data")
 	}
+
 	return user, nil
+}
+
+func copyAvatarToSpaces(user *models.User, ur *models.UserRepo) {
+	filename := fmt.Sprintf("%d-avatar.jpg", user.ID)
+	url, err := storage.CopyFromURL(user.AvatarURL, filename)
+	if err != nil {
+		return
+	}
+	ur.UpdateAvatar(user.ID, url)
+	user.AvatarURL = url
 }
 
 func verifyLocalToken(tokenString string) (*models.User, error) {

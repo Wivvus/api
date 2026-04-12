@@ -4,10 +4,14 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"path/filepath"
+	"strings"
+	"time"
 
 	"github.com/Wivvus/api/internal/email"
 	"github.com/Wivvus/api/internal/middleware"
 	"github.com/Wivvus/api/internal/models"
+	"github.com/Wivvus/api/internal/storage"
 	"github.com/Wivvus/api/internal/tokens"
 	"github.com/gin-gonic/gin"
 	"golang.org/x/crypto/bcrypt"
@@ -19,6 +23,7 @@ func ConfigureRouter(r *gin.Engine) {
 	r.POST("/auth/forgot-password", forgotPassword)
 	r.POST("/auth/change-password", middleware.AuthRequired(), changePassword)
 	r.POST("/auth/login", login)
+	r.POST("/user/avatar", middleware.AuthRequired(), uploadAvatar)
 	r.DELETE("/user", middleware.AuthRequired(), deleteAccount)
 }
 
@@ -97,6 +102,51 @@ func setPassword(c *gin.Context) {
 		"token": jwt,
 		"user":  user.ToAPI(),
 	})
+}
+
+func uploadAvatar(c *gin.Context) {
+	user := c.MustGet("user").(*models.User)
+
+	fileHeader, err := c.FormFile("avatar")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "avatar file is required"})
+		return
+	}
+
+	if fileHeader.Size > 5*1024*1024 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "file must be under 5MB"})
+		return
+	}
+
+	ct := fileHeader.Header.Get("Content-Type")
+	if !strings.HasPrefix(ct, "image/") {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "file must be an image"})
+		return
+	}
+
+	file, err := fileHeader.Open()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to read file"})
+		return
+	}
+	defer file.Close()
+
+	ext := filepath.Ext(fileHeader.Filename)
+	filename := fmt.Sprintf("%d-%d%s", user.ID, time.Now().UnixMilli(), ext)
+
+	url, err := storage.UploadAvatar(file, filename, ct)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to upload avatar"})
+		return
+	}
+
+	ur := &models.UserRepo{}
+	if err := ur.UpdateAvatar(user.ID, url); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save avatar"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"avatar_url": url})
 }
 
 func deleteAccount(c *gin.Context) {
