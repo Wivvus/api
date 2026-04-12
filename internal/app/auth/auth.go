@@ -25,6 +25,7 @@ func ConfigureRouter(r *gin.Engine) {
 	r.POST("/auth/change-password", middleware.AuthRequired(), changePassword)
 	r.POST("/auth/login", login)
 	r.POST("/user/avatar", middleware.AuthRequired(), uploadAvatar)
+	r.GET("/user/events", middleware.AuthRequired(), getUserEvents)
 	r.DELETE("/user", middleware.AuthRequired(), deleteAccount)
 }
 
@@ -149,6 +150,12 @@ func uploadAvatar(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"avatar_url": url})
+}
+
+func getUserEvents(c *gin.Context) {
+	user := c.MustGet("user").(*models.User)
+	er := models.EventRepo{}
+	c.JSON(http.StatusOK, er.AllByCreator(user.ID).ToAPI())
 }
 
 func deleteAccount(c *gin.Context) {

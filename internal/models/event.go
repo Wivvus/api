@@ -151,6 +151,12 @@ func ValidateEvent(e *Event) error {
 	return nil
 }
 
+func (e *EventRepo) AllByCreator(userID uint) Events {
+	events := Events{}
+	db.Where("creator_user_id = ?", userID).Order("start_time DESC").Find(&events)
+	return events
+}
+
 func (e *EventRepo) DeleteByID(id string) error {
 	return db.Delete(&Event{}, id).Error
 }
