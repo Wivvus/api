@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/Wivvus/api/internal/metrics"
 	"github.com/Wivvus/api/internal/middleware"
 	"github.com/Wivvus/api/internal/models"
 	"github.com/gin-gonic/gin"
@@ -42,6 +43,7 @@ func create(ctx *gin.Context) {
 
 	ar := models.AttendanceRepo{}
 	ar.Attend(newEvent.ID, user.ID)
+	metrics.EventCreated(user.ID, newEvent.ID)
 
 	ctx.JSON(http.StatusOK, gin.H{
 		"success": true,

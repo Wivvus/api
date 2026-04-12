@@ -9,6 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/Wivvus/api/internal/app"
+	"github.com/Wivvus/api/internal/metrics"
 	"github.com/Wivvus/api/internal/middleware"
 	"github.com/Wivvus/api/internal/models"
 	"github.com/Wivvus/api/internal/tokens"
@@ -71,6 +72,9 @@ func main() {
 	dsn := "host=" + dbHost + " user=" + dbUser + " password=" + dbPass + " dbname=" + dbDatabase + " port=" + dbPort + " sslmode=" + sslMode
 	log.Print("dsn", dsn)
 	models.ConnectDB(dsn)
+
+	metrics.Init()
+	defer metrics.Close()
 
 	app.ConfigureRouter(r)
 

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/Wivvus/api/internal/email"
+	"github.com/Wivvus/api/internal/metrics"
 	"github.com/Wivvus/api/internal/middleware"
 	"github.com/Wivvus/api/internal/models"
 	"github.com/Wivvus/api/internal/storage"
@@ -91,6 +92,7 @@ func setPassword(c *gin.Context) {
 	}
 
 	vr.MarkUsed(vt.ID)
+	metrics.UserRegistered(user.ID, user.Email)
 
 	jwt, err := tokens.Sign(user.ID, user.Email, user.Name)
 	if err != nil {
