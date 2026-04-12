@@ -76,6 +76,10 @@ func AuthRequired() gin.HandlerFunc {
 	}
 }
 
+func VerifyGoogleToken(ctx context.Context, tokenString string) (*models.User, error) {
+	return verifyGoogleToken(ctx, tokenString)
+}
+
 func verifyGoogleToken(ctx context.Context, tokenString string) (*models.User, error) {
 	idToken, err := verifier.Verify(ctx, tokenString)
 	if err != nil {

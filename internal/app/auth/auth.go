@@ -24,6 +24,7 @@ func ConfigureRouter(r *gin.Engine) {
 	r.POST("/auth/forgot-password", forgotPassword)
 	r.POST("/auth/change-password", middleware.AuthRequired(), changePassword)
 	r.POST("/auth/login", login)
+	r.POST("/auth/google", googleAuth)
 	r.POST("/user/avatar", middleware.AuthRequired(), uploadAvatar)
 	r.GET("/user/events", middleware.AuthRequired(), getUserEvents)
 	r.DELETE("/user", middleware.AuthRequired(), deleteAccount)
@@ -150,6 +151,33 @@ func uploadAvatar(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"avatar_url": url})
+}
+
+func googleAuth(c *gin.Context) {
+	var body struct {
+		IDToken string `json:"id_token" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "id_token is required"})
+		return
+	}
+
+	user, err := middleware.VerifyGoogleToken(c.Request.Context(), body.IDToken)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid Google token"})
+		return
+	}
+
+	jwt, err := tokens.Sign(user.ID, user.Email, user.Name)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to sign token"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"token": jwt,
+		"user":  user.ToAPI(),
+	})
 }
 
 func getUserEvents(c *gin.Context) {
