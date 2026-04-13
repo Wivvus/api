@@ -3,9 +3,10 @@ package models
 import "time"
 
 type Attendance struct {
-	EventID      uint `gorm:"primaryKey"`
-	UserID       uint `gorm:"primaryKey"`
-	ReminderSent bool
+	EventID            uint `gorm:"primaryKey"`
+	UserID             uint `gorm:"primaryKey"`
+	ReminderSent       bool
+	RatingReminderSent bool
 }
 
 type AttendeeInfo struct {
@@ -36,6 +37,18 @@ func (a *AttendanceRepo) AttendeesNeedingReminderForEvent(eventID uint) []*User 
 
 func (a *AttendanceRepo) MarkReminderSent(eventID, userID uint) {
 	db.Model(&Attendance{}).Where("event_id = ? AND user_id = ?", eventID, userID).Update("reminder_sent", true)
+}
+
+func (a *AttendanceRepo) AttendeesNeedingRatingReminderForEvent(eventID uint, creatorUserID uint) []*User {
+	var users []*User
+	db.Joins("JOIN attendances ON attendances.user_id = users.id AND attendances.event_id = ? AND attendances.rating_reminder_sent = false", eventID).
+		Where("users.id != ?", creatorUserID).
+		Find(&users)
+	return users
+}
+
+func (a *AttendanceRepo) MarkRatingReminderSent(eventID, userID uint) {
+	db.Model(&Attendance{}).Where("event_id = ? AND user_id = ?", eventID, userID).Update("rating_reminder_sent", true)
 }
 
 func (a *AttendanceRepo) Drop(eventID, userID uint) error {

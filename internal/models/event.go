@@ -31,20 +31,22 @@ type Event struct {
 }
 
 type EventAPIDecorator struct {
-	ID            uint      `json:"id"`
-	Name          string    `json:"name"`
-	Description   string    `json:"description"`
+	ID            uint     `json:"id"`
+	Name          string   `json:"name"`
+	Description   string   `json:"description"`
 	StartTime     time.Time `json:"start_time"`
-	DistanceKm    float64   `json:"distance_km"`
-	PaceMinKm     float64   `json:"pace_min_km"`
-	AllPaces      bool      `json:"all_paces"`
-	Location      Location  `json:"location"`
-	CreatorID     uint      `json:"creator_id"`
-	AttendeeCount int64     `json:"attendee_count"`
+	DistanceKm    float64  `json:"distance_km"`
+	PaceMinKm     float64  `json:"pace_min_km"`
+	AllPaces      bool     `json:"all_paces"`
+	Location      Location `json:"location"`
+	CreatorID     uint     `json:"creator_id"`
+	AttendeeCount int64    `json:"attendee_count"`
+	CreatorRating *float64 `json:"creator_rating"`
 }
 
 func (e *Event) ToAPI() *EventAPIDecorator {
 	ar := &AttendanceRepo{}
+	rr := &RatingRepo{}
 	return &EventAPIDecorator{
 		ID:            e.ID,
 		Name:          e.Name,
@@ -56,6 +58,7 @@ func (e *Event) ToAPI() *EventAPIDecorator {
 		Location:      e.Location,
 		CreatorID:     e.CreatorUserID,
 		AttendeeCount: ar.CountForEvent(e.ID),
+		CreatorRating: rr.AverageForCreator(e.CreatorUserID),
 	}
 }
 
@@ -140,6 +143,15 @@ func ValidateEvent(e *Event) error {
 		return fmt.Errorf("start time must be in the future")
 	}
 	return nil
+}
+
+func (e *EventRepo) EventsForRatingReminder() Events {
+	events := Events{}
+	now := time.Now()
+	windowStart := now.Add(-(12*time.Hour + 30*time.Minute))
+	windowEnd := now.Add(-(11*time.Hour + 30*time.Minute))
+	db.Where("start_time BETWEEN ? AND ?", windowStart, windowEnd).Find(&events)
+	return events
 }
 
 func (e *EventRepo) EventsInReminderWindow() Events {
