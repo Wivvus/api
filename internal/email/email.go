@@ -4,7 +4,39 @@ import (
 	"fmt"
 	"net/smtp"
 	"os"
+	"time"
 )
+
+func SendEventReminder(toEmail, name, eventName string, startTime time.Time, eventURL string) error {
+	host := os.Getenv("SMTP_HOST")
+	port := os.Getenv("SMTP_PORT")
+	user := os.Getenv("SMTP_USER")
+	pass := os.Getenv("SMTP_PASSWORD")
+	from := os.Getenv("SMTP_FROM")
+
+	if from == "" {
+		from = user
+	}
+
+	subject := fmt.Sprintf("Reminder: %s starts in 12 hours", eventName)
+	body := fmt.Sprintf(`Hi %s,
+
+This is a reminder that you're signed up for "%s", which starts at %s.
+
+View the event: %s
+
+See you on the run!`, name, eventName, startTime.Format("Monday 2 January 2006 at 15:04"), eventURL)
+
+	msg := fmt.Sprintf("From: %s\r\nTo: %s\r\nSubject: %s\r\n\r\n%s", from, toEmail, subject, body)
+
+	addr := host + ":" + port
+	var auth smtp.Auth
+	if user != "" && pass != "" {
+		auth = smtp.PlainAuth("", user, pass, host)
+	}
+
+	return smtp.SendMail(addr, auth, from, []string{toEmail}, []byte(msg))
+}
 
 func SendPasswordReset(toEmail, link string) error {
 	host := os.Getenv("SMTP_HOST")

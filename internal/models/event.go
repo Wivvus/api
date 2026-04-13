@@ -142,6 +142,15 @@ func ValidateEvent(e *Event) error {
 	return nil
 }
 
+func (e *EventRepo) EventsInReminderWindow() Events {
+	events := Events{}
+	now := time.Now()
+	windowStart := now.Add(11*time.Hour + 30*time.Minute)
+	windowEnd := now.Add(12*time.Hour + 30*time.Minute)
+	db.Where("start_time BETWEEN ? AND ?", windowStart, windowEnd).Find(&events)
+	return events
+}
+
 func (e *EventRepo) AllByCreator(userID uint) Events {
 	events := Events{}
 	db.Where("creator_user_id = ?", userID).Order("start_time DESC").Find(&events)

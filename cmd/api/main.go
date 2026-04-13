@@ -12,6 +12,7 @@ import (
 	"github.com/Wivvus/api/internal/metrics"
 	"github.com/Wivvus/api/internal/middleware"
 	"github.com/Wivvus/api/internal/models"
+	"github.com/Wivvus/api/internal/reminders"
 	"github.com/Wivvus/api/internal/tokens"
 
 	"github.com/gin-contrib/cors"
@@ -75,6 +76,8 @@ func main() {
 
 	metrics.Init()
 	defer metrics.Close()
+
+	reminders.Start()
 
 	app.ConfigureRouter(r)
 
