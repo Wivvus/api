@@ -78,14 +78,11 @@ func (e *EventRepo) CreateOrUpdate(event *Event) error {
 }
 
 type Filters struct {
-	MinLength  float64
-	MaxLength  float64
-	MinPace    float64
-	MaxPace    float64
-	MaxRadius  float64
-	UserLat    float64
-	UserLng    float64
-	DateFrom   *time.Time
+	MinLength float64
+	MaxLength float64
+	MinPace   float64
+	MaxPace   float64
+	DateFrom  *time.Time
 }
 
 func applyFilters(q *gorm.DB, f Filters) *gorm.DB {
@@ -106,12 +103,6 @@ func applyFilters(q *gorm.DB, f Filters) *gorm.DB {
 	}
 	if f.MaxPace > 0 {
 		q = q.Where("all_paces = true OR pace_min_km <= ?", f.MaxPace)
-	}
-	if f.MaxRadius > 0 && (f.UserLat != 0 || f.UserLng != 0) {
-		q = q.Where(`(6371 * acos(
-			cos(radians(?)) * cos(radians(lat)) * cos(radians(long) - radians(?)) +
-			sin(radians(?)) * sin(radians(lat))
-		)) <= ?`, f.UserLat, f.UserLng, f.UserLat, f.MaxRadius)
 	}
 	return q
 }
