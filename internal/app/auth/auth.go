@@ -327,7 +327,7 @@ func googleCodeAuth(c *gin.Context) {
 
 	idToken, err := exchangeGoogleCode(body.Code, body.RedirectURI)
 	if err != nil {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "failed to exchange Google code"})
+		c.JSON(http.StatusUnauthorized, gin.H{"error": err.Error()})
 		return
 	}
 
