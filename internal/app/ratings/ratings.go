@@ -12,6 +12,7 @@ import (
 func ConfigureRouter(r *gin.Engine) {
 	r.POST("/event/:id/rate", middleware.AuthRequired(), rate)
 	r.GET("/event/:id/ratings", getRatings)
+	r.GET("/user/:id/ratings", getCreatorRatings)
 }
 
 func rate(c *gin.Context) {
@@ -83,5 +84,22 @@ func getRatings(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"ratings": rr.ForEvent(event.ID),
 		"average": rr.AverageForEvent(event.ID),
+	})
+}
+
+func getCreatorRatings(c *gin.Context) {
+	id := c.Param("id")
+
+	ur := models.UserRepo{}
+	user := ur.FindByID(id)
+	if user == nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+		return
+	}
+
+	rr := models.RatingRepo{}
+	c.JSON(http.StatusOK, gin.H{
+		"ratings": rr.ForCreator(user.ID),
+		"average": rr.AverageForCreator(user.ID),
 	})
 }
