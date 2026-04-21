@@ -1,8 +1,11 @@
 package auth
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -25,6 +28,7 @@ func ConfigureRouter(r *gin.Engine) {
 	r.POST("/auth/change-password", middleware.AuthRequired(), changePassword)
 	r.POST("/auth/login", login)
 	r.POST("/auth/google", googleAuth)
+	r.POST("/auth/google/code", googleCodeAuth)
 	r.POST("/user/avatar", middleware.AuthRequired(), uploadAvatar)
 	r.GET("/user/events", middleware.AuthRequired(), getUserEvents)
 	r.DELETE("/user", middleware.AuthRequired(), deleteAccount)
@@ -307,4 +311,73 @@ func login(c *gin.Context) {
 		"token": jwt,
 		"user":  user.ToAPI(),
 	})
+}
+
+// googleCodeAuth exchanges an OAuth2 authorization code for a Wivvus JWT.
+// Used by the redirect-based Google sign-in flow (works in all browsers including Telegram).
+func googleCodeAuth(c *gin.Context) {
+	var body struct {
+		Code        string `json:"code" binding:"required"`
+		RedirectURI string `json:"redirect_uri" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "code and redirect_uri are required"})
+		return
+	}
+
+	idToken, err := exchangeGoogleCode(body.Code, body.RedirectURI)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "failed to exchange Google code"})
+		return
+	}
+
+	user, err := middleware.VerifyGoogleToken(c.Request.Context(), idToken)
+	if err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid Google token"})
+		return
+	}
+
+	jwt, err := tokens.Sign(user.ID, user.Email, user.Name)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to sign token"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"token": jwt,
+		"user":  user.ToAPI(),
+	})
+}
+
+func exchangeGoogleCode(code, redirectURI string) (string, error) {
+	data := url.Values{}
+	data.Set("code", code)
+	data.Set("client_id", os.Getenv("GOOGLE_OAUTH_CLIENT_ID"))
+	data.Set("client_secret", os.Getenv("GOOGLE_OAUTH_CLIENT_SECRET"))
+	data.Set("redirect_uri", redirectURI)
+	data.Set("grant_type", "authorization_code")
+
+	resp, err := http.PostForm("https://oauth2.googleapis.com/token", data)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("google token exchange failed: %s", string(body))
+	}
+
+	var result struct {
+		IDToken string `json:"id_token"`
+	}
+	if err := json.Unmarshal(body, &result); err != nil || result.IDToken == "" {
+		return "", fmt.Errorf("no id_token in response")
+	}
+
+	return result.IDToken, nil
 }
