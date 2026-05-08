@@ -25,30 +25,36 @@ func ConfigureRouter(r *gin.Engine) {
 func create(ctx *gin.Context) {
 	user := ctx.MustGet("user").(*models.User)
 
-	var newEvent models.Event
-	if err := ctx.ShouldBindJSON(&newEvent); err != nil {
+	var body struct {
+		models.Event
+		Options []string `json:"options"`
+	}
+	if err := ctx.ShouldBindJSON(&body); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	if err := models.ValidateEvent(&newEvent); err != nil {
+	if err := models.ValidateEvent(&body.Event); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	newEvent.CreatorUserID = user.ID
+	body.Event.CreatorUserID = user.ID
 
 	er := models.EventRepo{}
-	er.CreateOrUpdate(&newEvent)
+	er.CreateOrUpdate(&body.Event)
+
+	or := models.EventOptionRepo{}
+	or.ReplaceForEvent(body.Event.ID, body.Options)
 
 	ar := models.AttendanceRepo{}
-	ar.Attend(newEvent.ID, user.ID)
-	metrics.EventCreated(user.ID, newEvent.ID)
+	ar.Attend(body.Event.ID, user.ID, nil)
+	metrics.EventCreated(user.ID, body.Event.ID)
 
 	ctx.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"message": "event received succesfully",
-		"event":   newEvent.ToAPI(),
+		"event":   body.Event.ToAPI(),
 	})
 }
 
@@ -78,22 +84,28 @@ func update(ctx *gin.Context) {
 		return
 	}
 
-	var updated models.Event
-	if err := ctx.ShouldBindJSON(&updated); err != nil {
+	var body struct {
+		models.Event
+		Options []string `json:"options"`
+	}
+	if err := ctx.ShouldBindJSON(&body); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	if err := models.ValidateEvent(&updated); err != nil {
+	if err := models.ValidateEvent(&body.Event); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	updated.Model = existing.Model
-	updated.CreatorUserID = existing.CreatorUserID
-	er.CreateOrUpdate(&updated)
+	body.Event.Model = existing.Model
+	body.Event.CreatorUserID = existing.CreatorUserID
+	er.CreateOrUpdate(&body.Event)
 
-	ctx.JSON(http.StatusOK, updated.ToAPI())
+	or := models.EventOptionRepo{}
+	or.ReplaceForEvent(body.Event.ID, body.Options)
+
+	ctx.JSON(http.StatusOK, body.Event.ToAPI())
 }
 
 func delete(ctx *gin.Context) {
@@ -128,6 +140,7 @@ func attendees(ctx *gin.Context) {
 	ctx.JSON(http.StatusOK, models.AttendeesResponse{
 		Attendees:   ar.AttendeesForEvent(event.ID),
 		IsAttending: ar.IsAttending(event.ID, user.ID),
+		MyOptionID:  ar.MyOptionID(event.ID, user.ID),
 	})
 }
 
@@ -140,8 +153,14 @@ func attend(ctx *gin.Context) {
 		ctx.JSON(http.StatusNotFound, gin.H{"error": "event not found"})
 		return
 	}
+
+	var body struct {
+		OptionID *uint `json:"option_id"`
+	}
+	ctx.ShouldBindJSON(&body)
+
 	ar := models.AttendanceRepo{}
-	if err := ar.Attend(event.ID, user.ID); err != nil {
+	if err := ar.Attend(event.ID, user.ID, body.OptionID); err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}

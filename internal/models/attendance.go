@@ -3,30 +3,45 @@ package models
 import "time"
 
 type Attendance struct {
-	EventID            uint `gorm:"primaryKey"`
-	UserID             uint `gorm:"primaryKey"`
+	EventID            uint  `gorm:"primaryKey"`
+	UserID             uint  `gorm:"primaryKey"`
+	EventOptionID      *uint `gorm:"default:null"`
 	ReminderSent       bool
 	RatingReminderSent bool
 }
 
 type AttendeeInfo struct {
-	Name      string `json:"name"`
-	AvatarURL string `json:"avatar_url"`
+	Name       string  `json:"name"`
+	AvatarURL  string  `json:"avatar_url"`
+	OptionText *string `json:"option_text,omitempty"`
 }
 
 type AttendeesResponse struct {
-	Attendees   []*AttendeeInfo `json:"attendees"`
-	IsAttending bool            `json:"is_attending"`
+	Attendees    []*AttendeeInfo `json:"attendees"`
+	IsAttending  bool            `json:"is_attending"`
+	MyOptionID   *uint           `json:"my_option_id"`
 }
 
 type AttendanceRepo struct{}
 
-func (a *AttendanceRepo) Attend(eventID, userID uint) error {
+func (a *AttendanceRepo) Attend(eventID, userID uint, optionID *uint) error {
 	var event Event
 	db.First(&event, eventID)
 	reminderSent := !event.StartTime.IsZero() && event.StartTime.Before(time.Now().Add(12*time.Hour))
-	attendance := Attendance{EventID: eventID, UserID: userID, ReminderSent: reminderSent}
-	return db.FirstOrCreate(&attendance, Attendance{EventID: eventID, UserID: userID}).Error
+
+	var existing Attendance
+	result := db.Where("event_id = ? AND user_id = ?", eventID, userID).First(&existing)
+	if result.Error != nil {
+		// Not found — create
+		return db.Create(&Attendance{
+			EventID:       eventID,
+			UserID:        userID,
+			EventOptionID: optionID,
+			ReminderSent:  reminderSent,
+		}).Error
+	}
+	// Found — update option
+	return db.Model(&existing).Update("event_option_id", optionID).Error
 }
 
 func (a *AttendanceRepo) AttendeesNeedingReminderForEvent(eventID uint) []*User {
@@ -67,12 +82,30 @@ func (a *AttendanceRepo) CountForEvent(eventID uint) int64 {
 	return count
 }
 
+func (a *AttendanceRepo) MyOptionID(eventID, userID uint) *uint {
+	var att Attendance
+	if db.Where("event_id = ? AND user_id = ?", eventID, userID).First(&att).Error != nil {
+		return nil
+	}
+	return att.EventOptionID
+}
+
+type attendeeRow struct {
+	Name      string
+	AvatarURL string
+	OptionText *string
+}
+
 func (a *AttendanceRepo) AttendeesForEvent(eventID uint) []*AttendeeInfo {
-	var users []User
-	db.Joins("JOIN attendances ON attendances.user_id = users.id AND attendances.event_id = ?", eventID).Find(&users)
-	result := make([]*AttendeeInfo, len(users))
-	for i, u := range users {
-		result[i] = &AttendeeInfo{Name: u.Name, AvatarURL: u.AvatarURL}
+	var rows []attendeeRow
+	db.Table("users").
+		Select("users.name, users.avatar_url, event_options.text AS option_text").
+		Joins("JOIN attendances ON attendances.user_id = users.id AND attendances.event_id = ?", eventID).
+		Joins("LEFT JOIN event_options ON event_options.id = attendances.event_option_id").
+		Scan(&rows)
+	result := make([]*AttendeeInfo, len(rows))
+	for i, r := range rows {
+		result[i] = &AttendeeInfo{Name: r.Name, AvatarURL: r.AvatarURL, OptionText: r.OptionText}
 	}
 	return result
 }

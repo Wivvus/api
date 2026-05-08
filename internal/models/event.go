@@ -31,25 +31,27 @@ type Event struct {
 }
 
 type EventAPIDecorator struct {
-	ID               uint      `json:"id"`
-	Name             string    `json:"name"`
-	Description      string    `json:"description"`
-	StartTime        time.Time `json:"start_time"`
-	DistanceKm       float64   `json:"distance_km"`
-	PaceMinKm        float64   `json:"pace_min_km"`
-	AllPaces         bool      `json:"all_paces"`
-	Location         Location  `json:"location"`
-	CreatorID        uint      `json:"creator_id"`
-	CreatorName      string    `json:"creator_name"`
-	CreatorAvatarURL string    `json:"creator_avatar_url"`
-	AttendeeCount    int64     `json:"attendee_count"`
-	CreatorRating    *float64  `json:"creator_rating"`
+	ID               uint              `json:"id"`
+	Name             string            `json:"name"`
+	Description      string            `json:"description"`
+	StartTime        time.Time         `json:"start_time"`
+	DistanceKm       float64           `json:"distance_km"`
+	PaceMinKm        float64           `json:"pace_min_km"`
+	AllPaces         bool              `json:"all_paces"`
+	Location         Location          `json:"location"`
+	CreatorID        uint              `json:"creator_id"`
+	CreatorName      string            `json:"creator_name"`
+	CreatorAvatarURL string            `json:"creator_avatar_url"`
+	AttendeeCount    int64             `json:"attendee_count"`
+	CreatorRating    *float64          `json:"creator_rating"`
+	Options          []*EventOptionAPI `json:"options"`
 }
 
 func (e *Event) ToAPI() *EventAPIDecorator {
 	ar := &AttendanceRepo{}
 	rr := &RatingRepo{}
 	ur := &UserRepo{}
+	or := &EventOptionRepo{}
 	creator := ur.FindByID(fmt.Sprintf("%d", e.CreatorUserID))
 	creatorName := ""
 	creatorAvatarURL := ""
@@ -71,6 +73,7 @@ func (e *Event) ToAPI() *EventAPIDecorator {
 		CreatorAvatarURL: creatorAvatarURL,
 		AttendeeCount:    ar.CountForEvent(e.ID),
 		CreatorRating:    rr.AverageForCreator(e.CreatorUserID),
+		Options:          or.ForEvent(e.ID),
 	}
 }
 

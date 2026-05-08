@@ -35,4 +35,5 @@ func ConnectDB(dsn string) {
 	db.AutoMigrate(&Attendance{})
 	db.AutoMigrate(&EmailVerificationToken{})
 	db.AutoMigrate(&Rating{})
+	db.AutoMigrate(&EventOption{})
 }

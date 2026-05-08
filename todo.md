@@ -22,7 +22,7 @@
 [ ] the event list and map view page should poll the API every minute for new events
 [x] Remove requirement for login after every redeploy
 [x] Remove requirement to regrant location permission after every redeploy
-[ ] Allow attendees (but not the organiser), to rate an event out 5 after having attended it
+[x] Allow attendees (but not the organiser), to rate an event out 5 after having attended it
 [x] Remove distance from me filter
 [ ] Allow a user to create a running group
     [ ] groups have a name and a information page
@@ -40,3 +40,9 @@
     [ ] Attending events: all events in the past or future that this user is attending
 [ ] In the account details page, add a tab to manage groups
 [ ] In the account details page, add a tab to view a summary of my rating, and all of my individual ratings 
+[x] All events to have multiple response options, defined by the creator (e.g. attend for 5k, attend for 10k, attend the post-run party)
+    [x] Creator can add/remove named options during event creation and editing
+    [x] First option is the default; removing an option remaps attendees to the first remaining option
+    [x] Attendees section groups runners by their chosen option
+[ ] Change URL scheme to wivvus.com/run/5 instead of wivvus.com/event/5
+[ ] allow run.wivvus.com/5 to point to wivvus.com/run/5
