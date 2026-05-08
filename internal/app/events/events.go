@@ -12,14 +12,14 @@ import (
 )
 
 func ConfigureRouter(r *gin.Engine) {
-	r.POST("/event", middleware.AuthRequired(), create)
-	r.GET("/events", list)
-	r.GET("/event/:id", get)
-	r.PUT("/event/:id", middleware.AuthRequired(), update)
-	r.DELETE("/event/:id", middleware.AuthRequired(), delete)
-	r.GET("/event/:id/attendees", middleware.AuthRequired(), attendees)
-	r.POST("/event/:id/attend", middleware.AuthRequired(), attend)
-	r.DELETE("/event/:id/attend", middleware.AuthRequired(), drop)
+	r.POST("/run", middleware.AuthRequired(), create)
+	r.GET("/runs", list)
+	r.GET("/run/:id", get)
+	r.PUT("/run/:id", middleware.AuthRequired(), update)
+	r.DELETE("/run/:id", middleware.AuthRequired(), delete)
+	r.GET("/run/:id/attendees", middleware.AuthRequired(), attendees)
+	r.POST("/run/:id/attend", middleware.AuthRequired(), attend)
+	r.DELETE("/run/:id/attend", middleware.AuthRequired(), drop)
 }
 
 func create(ctx *gin.Context) {

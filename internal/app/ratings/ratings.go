@@ -10,8 +10,8 @@ import (
 )
 
 func ConfigureRouter(r *gin.Engine) {
-	r.POST("/event/:id/rate", middleware.AuthRequired(), rate)
-	r.GET("/event/:id/ratings", getRatings)
+	r.POST("/run/:id/rate", middleware.AuthRequired(), rate)
+	r.GET("/run/:id/ratings", getRatings)
 	r.GET("/user/:id/ratings", getCreatorRatings)
 }
 
