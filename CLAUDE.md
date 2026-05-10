@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Git workflow
+
+**Never run `git commit` or `git push` without explicit confirmation from the user.** After making changes, summarise what was done and ask before running any git commands.
+
 ## Repositories
 
 This project spans two repos that are developed together:
