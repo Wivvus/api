@@ -27,7 +27,7 @@ func run() {
 
 	// Pre-event reminders (12 hours before)
 	for _, event := range er.EventsInReminderWindow() {
-		eventURL := fmt.Sprintf("%s/events/%d", appURL, event.ID)
+		eventURL := fmt.Sprintf("%s/run/%d", appURL, event.ID)
 		for _, user := range ar.AttendeesNeedingReminderForEvent(event.ID) {
 			if err := email.SendEventReminder(user.Email, user.Name, event.Name, event.StartTime, eventURL); err != nil {
 				log.Printf("failed to send reminder to %s for event %d: %v", user.Email, event.ID, err)
@@ -39,7 +39,7 @@ func run() {
 
 	// Post-event rating reminders (12 hours after)
 	for _, event := range er.EventsForRatingReminder() {
-		eventURL := fmt.Sprintf("%s/events/%d", appURL, event.ID)
+		eventURL := fmt.Sprintf("%s/run/%d/review", appURL, event.ID)
 		for _, user := range ar.AttendeesNeedingRatingReminderForEvent(event.ID, event.CreatorUserID) {
 			if err := email.SendRatingReminder(user.Email, user.Name, event.Name, eventURL); err != nil {
 				log.Printf("failed to send rating reminder to %s for event %d: %v", user.Email, event.ID, err)
