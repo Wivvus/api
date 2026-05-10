@@ -83,6 +83,10 @@ func update(ctx *gin.Context) {
 		ctx.JSON(http.StatusForbidden, gin.H{"error": "not the event creator"})
 		return
 	}
+	if !existing.StartTime.IsZero() && existing.StartTime.Before(time.Now()) {
+		ctx.JSON(http.StatusForbidden, gin.H{"error": "this run has already taken place"})
+		return
+	}
 
 	var body struct {
 		models.Event
@@ -122,6 +126,10 @@ func delete(ctx *gin.Context) {
 		ctx.JSON(http.StatusForbidden, gin.H{"error": "not the event creator"})
 		return
 	}
+	if !existing.StartTime.IsZero() && existing.StartTime.Before(time.Now()) {
+		ctx.JSON(http.StatusForbidden, gin.H{"error": "this run has already taken place"})
+		return
+	}
 
 	er.DeleteByID(id)
 	ctx.JSON(http.StatusOK, gin.H{"success": true})
@@ -153,6 +161,10 @@ func attend(ctx *gin.Context) {
 		ctx.JSON(http.StatusNotFound, gin.H{"error": "event not found"})
 		return
 	}
+	if !event.StartTime.IsZero() && event.StartTime.Before(time.Now()) {
+		ctx.JSON(http.StatusForbidden, gin.H{"error": "this run has already taken place"})
+		return
+	}
 
 	var body struct {
 		OptionID *uint `json:"option_id"`
@@ -174,6 +186,10 @@ func drop(ctx *gin.Context) {
 	event := er.FindByID(id)
 	if event == nil {
 		ctx.JSON(http.StatusNotFound, gin.H{"error": "event not found"})
+		return
+	}
+	if !event.StartTime.IsZero() && event.StartTime.Before(time.Now()) {
+		ctx.JSON(http.StatusForbidden, gin.H{"error": "this run has already taken place"})
 		return
 	}
 	ar := models.AttendanceRepo{}
