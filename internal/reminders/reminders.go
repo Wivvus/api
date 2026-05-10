@@ -38,10 +38,15 @@ func run() {
 	}
 
 	// Post-event rating reminders (12 hours after)
+	ur := models.UserRepo{}
 	for _, event := range er.EventsForRatingReminder() {
 		eventURL := fmt.Sprintf("%s/run/%d/review", appURL, event.ID)
+		creatorName := ""
+		if creator := ur.FindByID(fmt.Sprintf("%d", event.CreatorUserID)); creator != nil {
+			creatorName = creator.Name
+		}
 		for _, user := range ar.AttendeesNeedingRatingReminderForEvent(event.ID, event.CreatorUserID) {
-			if err := email.SendRatingReminder(user.Email, user.Name, event.Name, eventURL); err != nil {
+			if err := email.SendRatingReminder(user.Email, user.Name, event.Name, creatorName, eventURL); err != nil {
 				log.Printf("failed to send rating reminder to %s for event %d: %v", user.Email, event.ID, err)
 				continue
 			}

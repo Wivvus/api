@@ -38,7 +38,7 @@ See you on the run!`, name, eventName, startTime.Format("Monday 2 January 2006 a
 	return smtp.SendMail(addr, auth, from, []string{toEmail}, []byte(msg))
 }
 
-func SendRatingReminder(toEmail, name, eventName, eventURL string) error {
+func SendRatingReminder(toEmail, name, eventName, creatorName, eventURL string) error {
 	host := os.Getenv("SMTP_HOST")
 	port := os.Getenv("SMTP_PORT")
 	user := os.Getenv("SMTP_USER")
@@ -50,14 +50,18 @@ func SendRatingReminder(toEmail, name, eventName, eventURL string) error {
 	}
 
 	subject := fmt.Sprintf("How was %s?", eventName)
+	ownerPossessive := "the"
+	if creatorName != "" {
+		ownerPossessive = creatorName + "'s"
+	}
 	body := fmt.Sprintf(`Hi %s,
 
-We hope you enjoyed "%s"! How did it go?
+We hope you enjoyed %s %s run! How did it go?
 
 Leave a rating and optional comment here:
 %s
 
-Your feedback helps other runners find great events.`, name, eventName, eventURL)
+Your feedback helps other runners find great events.`, name, ownerPossessive, eventName, eventURL)
 
 	msg := fmt.Sprintf("From: %s\r\nTo: %s\r\nSubject: %s\r\n\r\n%s", from, toEmail, subject, body)
 
